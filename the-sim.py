@@ -124,12 +124,12 @@ def bandsim(x0,particle,Ed,er,dp,pmtps1,pmtps2,jj):
 			if particle=="electron":
 				tauS1_ns = 27 # ns
 				if f0[i]>0 and f0[i]<=1:
-					if er[i]<3:
+					if er[i]<0:
 						p = f0[i]
 					else:
 						p=-1
 						while p<=0 or p>1:
-							if er[i]>=3:
+							if er[i]>=0:
 								p = np.random.normal(f0[i],0.07)
 # 							elif er[i]>=15:
 # 								p = np.random.normal(f0[i],0.06)							
@@ -226,9 +226,9 @@ def getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu):
 		
 ############################################# do stuff
 
-## what to do?
-if 0:
-	if 0:
+
+if 0: # plot bands
+	if 1:
 		detector = 'LUX'
 		Ed = 180
 		er = np.arange(0.75,12,0.25) # keV
@@ -257,8 +257,13 @@ if 0:
 		plt.figure(9); ax = plt.subplot(1,2,1); plt.cla()
 		plt.plot(S1,yy,'k.',color='darkslateblue',markeredgecolor="None",alpha=0.13) 
 		execfile("add-to-plot.py")
-		plt.plot(xe_s1,sim_er_mu,'k+',ms=8,markerfacecolor="None",markeredgewidth=0.75)
-		plt.plot(xe_s1,sim_er_mu-sim_er_1s,'k+',ms=8,markerfacecolor="None",markeredgewidth=0.75)
+		plt.plot(xe_s1,sim_er_mu,'k+',ms=6,markerfacecolor="None",markeredgewidth=0.75)
+		plt.plot(xe_s1,sim_er_mu-sim_er_1s,'k+',ms=6,markerfacecolor="None",markeredgewidth=0.75)
+		for bb in range(0,len(xe_s1)):
+			plt.plot([xe_be[bb], xe_be[bb+1]],[sim_er_mu[bb], sim_er_mu[bb]],'k-')
+			#plt.plot([xe_s1[bb], xe_s1[bb]],[sim_er_1s[bb], sim_er_1s[bb]]/np.sqrt(sim_bc[bb]),'k-')
+			plt.plot([xe_be[bb], xe_be[bb+1]],[sim_er_mu[bb]-sim_er_1s[bb], sim_er_mu[bb]-sim_er_1s[bb]],'k-')
+
 	if 1:
 		jj = 100 # number of simulated events per energy
 		particle='neutron'
@@ -269,12 +274,17 @@ if 0:
 		plt.figure(9);ax = plt.subplot(1,2,2); plt.cla()
 		plt.plot(S1,yy,'k.',color='chocolate',markeredgecolor="None",alpha=0.13) 
 		execfile("add-to-plot.py")
-		plt.plot(xe_s1,sim_nr_mu,'k+',ms=8,markerfacecolor="None",markeredgewidth=0.75)
-		plt.plot(xe_s1,sim_nr_mu-sim_nr_1s,'k+',ms=8,markerfacecolor="None",markeredgewidth=0.75)
+		plt.plot(xe_s1,sim_nr_mu,'k+',ms=6,markerfacecolor="None",markeredgewidth=0.75)
+		plt.plot(xe_s1,sim_nr_mu-sim_nr_1s,'k+',ms=6,markerfacecolor="None",markeredgewidth=0.75)
+		for bb in range(0,len(xe_s1)):
+			plt.plot([xe_be[bb], xe_be[bb+1]],[sim_nr_mu[bb], sim_nr_mu[bb]],'k-')
+			#plt.plot([xe_s1[bb], xe_s1[bb]],[sim_nr_1s[bb], sim_nr_1s[bb]]/np.sqrt(sim_bc[bb]),'k-')
+			plt.plot([xe_be[bb], xe_be[bb+1]],[sim_nr_mu[bb]-sim_nr_1s[bb], sim_nr_mu[bb]-sim_nr_1s[bb]],'k-')
 
 	plt.savefig("figs/bands.pdf")
 
-if 0:
+
+if 0: # plot recombination energy dependence
 	f10=plt.figure(11); plt.clf();
 
 	particle='electron'; Ed=180
@@ -318,48 +328,35 @@ if 0:
 	plt.show(0); plt.draw()
 	plt.savefig("figs/yields.pdf")
 
-if 0:
-	f7=plt.figure(7); plt.clf(); #ax7=f7.add_axes([0.1, 0.1, 0.8, 0.8]); plt.clf();# plt.hold(True)
+if 0: # plot discrimination versus x
+	f4=plt.figure(4); plt.clf(); #ax7=f7.add_axes([0.1, 0.1, 0.8, 0.8]); plt.clf();# plt.hold(True)
 	detector = 'LUX'
-	er = np.arange(0.75,12,0.25) # keV
-
-	Ed = 180	
-	execfile("define-detector.py")
-	execfile("get-leakage.py")
-	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-	lux180g11, = plt.semilogy(xe_s1,leakage_frac,'ko',label='lux180g11')
-
-	Ed = 730
-	execfile("define-detector.py")
-	execfile("get-leakage.py")
-	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-	lux730g11, = plt.semilogy(xe_s1,leakage_frac,'b^',label='lux730g11')
 
 	Ed = 180
 	execfile("define-detector.py")
 	g1 = 0.08; dp[0]=g1 #0.116*1.5
 	execfile("get-leakage.py")
 	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-	plt.semilogy(xe_s1,leakage_frac,'rp')
+	plt.semilogy(xe_s1,leakage_frac,'rx')
 
-# 	Ed = 180
-#	execfile("define-detector.py")
-# 	eta_extraction = 0.95; dp[11] = eta_extraction
-# 	execfile("get-leakage.py")
-# 	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-# 	lux180g11eta95, = plt.semilogy(xe_s1,leakage_frac,'k+',label='lux180g11eta95')
-# 
-# 	Ed = 180
-#	execfile("define-detector.py")
-# 	g1 = 0.116*2; dp[0]=g1 #0.116*1.5
-# 	execfile("get-leakage.py")
-# 	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-# 	lux180g22, = plt.semilogy(xe_s1,leakage_frac,'rp',label='lux180g22')
-# 
-# 	eta_extraction = 0.95; dp[11] = eta_extraction
-# 	execfile("get-leakage.py")
-# 	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-# 	lux180g22eta95, = plt.semilogy(xe_s1,leakage_frac,'rp',color='darkorchid',label='lux180g22eta95')
+	Ed = 180	
+	execfile("define-detector.py")
+	execfile("get-leakage.py")
+	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
+	lux180g11, = plt.semilogy(xe_s1,leakage_frac,'ko')
+
+	Ed = 180
+	execfile("define-detector.py")
+	eta_extraction = 0.95; dp[11] = eta_extraction
+	execfile("get-leakage.py")
+	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
+	lux180g11eta95, = plt.semilogy(xe_s1,leakage_frac,'k+')
+
+	Ed = 730
+	execfile("define-detector.py")
+	execfile("get-leakage.py")
+	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
+	lux730g11, = plt.semilogy(xe_s1,leakage_frac,'b^')
 
 
 	plt.plot(np.array([0,50]),np.array([1,1])*5e-3,'k--')
@@ -370,44 +367,43 @@ if 0:
 	plt.yticks([1e-6,1e-5,1e-4,1e-3,1e-2],fontsize=18)
 	plt.grid(True)
 	plt.show(0); plt.draw()
-	plt.savefig("disc.pdf")
+	plt.savefig("figs/disc7.pdf")
 
 
 if 1:
-	f7=plt.figure(7); plt.clf(); #ax7=f7.add_axes([0.1, 0.1, 0.8, 0.8]); plt.clf();# plt.hold(True)
+	f5=plt.figure(5); plt.clf();
 	detector = 'LUX'
-	er = np.arange(0.75,12,0.25) # keV
+
 	Ed = 180	
 	execfile("define-detector.py")
-	
-	execfile("get-leakage.py")
-	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-	plt.semilogy(xe_s1,leakage_frac,'ko')
-
+	eta_extraction = 0.95; dp[11] = eta_extraction
 	g1 = 0.057; dp[0]=g1
 	execfile("get-leakage.py")
 	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-	plt.semilogy(xe_s1,leakage_frac,'r.',color='red')
-
-	g1 = 0.08; dp[0]=g1
+	plt.semilogy(xe_s1,leakage_frac,'kx',color='orange')
+	
+	Ed = 180	
+	execfile("define-detector.py")
+	eta_extraction = 0.95; dp[11] = eta_extraction
 	execfile("get-leakage.py")
 	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-	plt.semilogy(xe_s1,leakage_frac,'kp',color='orange')
+	plt.semilogy(xe_s1,leakage_frac,'k+')
 
-	g1 = 0.15; dp[0]=g1
+	Ed = 730
+	execfile("define-detector.py")
+	eta_extraction = 0.95; dp[11] = eta_extraction
 	execfile("get-leakage.py")
 	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-	plt.semilogy(xe_s1,leakage_frac,'kp',color='green')
+	plt.semilogy(xe_s1,leakage_frac,'k^',color='aqua')
 
-	g1 = 0.20; dp[0]=g1
+	Ed = 180
+	execfile("define-detector.py")
+	eta_extraction = 0.95; dp[11] = eta_extraction
+	g1 = 0.117*2; dp[0]=g1
 	execfile("get-leakage.py")
 	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-	plt.semilogy(xe_s1,leakage_frac,'kp',color='blue')
+	plt.semilogy(xe_s1,leakage_frac,'k*',color='indigo')
 
-	g1 = 0.25; dp[0]=g1
-	execfile("get-leakage.py")
-	leakage_frac = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
-	plt.semilogy(xe_s1,leakage_frac,'kp',color='indigo')
 
 	plt.plot(np.array([0,50]),np.array([1,1])*5e-3,'k--')
 	plt.axis([0,50,1e-6,3e-2])
@@ -417,5 +413,5 @@ if 1:
 	plt.yticks([1e-6,1e-5,1e-4,1e-3,1e-2],fontsize=18)
 	plt.grid(True)
 	plt.show(0); plt.draw()
-	plt.savefig("figs/disc.pdf")
+	plt.savefig("figs/disc8.pdf")
 
