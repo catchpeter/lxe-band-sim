@@ -2,12 +2,14 @@
 if detector=='XENON10': # xenon10 from my thesis
 	x10S1 = np.array([3,5,7,9,11.5,14.5,17.5,20.5,23.5,27.5,32.5,37.5])
 	x10yy = np.array([2.89,2.74,2.66,2.60,2.55,2.50,2.46,2.44,2.43,2.40,2.39,2.37])
-	ax.plot(x10S1,x10yy,'b.-',ms=7)#,markeredgecolor="None")
+	plt.plot(x10S1,x10yy,'b.-',ms=7)#,markeredgecolor="None")
 if 1: # band mu from PR article
 	plt.plot(xe_s1,xermu,'b.-',ms=7,markerfacecolor="None",alpha=1.,markeredgewidth=1)
 	plt.plot(xe_s1,xermu-xer1s,'b.--',ms=7,markerfacecolor="None",alpha=1.,markeredgewidth=1)
+	plt.plot(xe_s1,xermu+xer1s,'b.--',ms=7,markerfacecolor="None",alpha=1.,markeredgewidth=1)
 	plt.plot(xe_s1,xnrmu,'r.-',ms=7,markerfacecolor="None",alpha=1.,markeredgewidth=1)
 	plt.plot(xe_s1,xnrmu-xnr1s,'r.--',ms=7,markerfacecolor="None",alpha=1.,markeredgewidth=1)
+	plt.plot(xe_s1,xnrmu+xnr1s,'r.--',ms=7,markerfacecolor="None",alpha=1.,markeredgewidth=1)
 
 
 energies = [1,2,5,10,15,20]
