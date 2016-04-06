@@ -232,7 +232,7 @@ if 1: # plot bands
 		detector = 'XENON100'
 		Ed = 530
 		er = np.arange(0.75,25,0.25) # keV
-	elif 1:
+	elif 0:
 		detector = 'XENON10'
 		Ed = 730
 		er = np.arange(0.75,20,0.25) # keV
@@ -250,7 +250,7 @@ if 1: # plot bands
 		#x0 = define_x0(particle,Ed)
 		(Ne,Ng,S1,S2,yy) = bandsim(particle,Ed,er,dp,pmtps1,pmtps2,jj)
 		(sim_er_mu,sim_er_1s,sim_bc) = getBandMuSigma(xe_s1,xe_be,S1,yy,detector)
-		plt.figure(9); #ax = plt.subplot(1,2,1); plt.cla()
+		plt.figure(9); ax = plt.subplot(1,2,1); plt.cla()
 		plt.plot(S1,yy,'k.',color='darkslateblue',markeredgecolor="None",alpha=0.13) 
 		execfile("add-to-plot.py")
 		plt.plot(xe_s1,sim_er_mu,'k+',ms=6,markerfacecolor="None",markeredgewidth=0.75)
@@ -263,7 +263,7 @@ if 1: # plot bands
 	if 0:
 		jj = 100 # number of simulated events per energy
 		particle='neutron'
-		er = np.arange(0.75,70,0.25) # keV
+		er = np.arange(0.75,35,0.25) # keV
 		#x0 = define_x0(particle,Ed)
 		(Ne,Ng,S1,S2,yy) = bandsim(particle,Ed,er,dp,pmtps1,pmtps2,jj)
 		(sim_nr_mu,sim_nr_1s,sim_bc) = getBandMuSigma(xe_s1,xe_be,S1,yy,detector)
@@ -277,32 +277,52 @@ if 1: # plot bands
 # 			#plt.plot([xe_s1[bb], xe_s1[bb]],[sim_nr_1s[bb], sim_nr_1s[bb]]/np.sqrt(sim_bc[bb]),'k-')
 # 			plt.plot([xe_be[bb], xe_be[bb+1]],[sim_nr_mu[bb]-sim_nr_1s[bb], sim_nr_mu[bb]-sim_nr_1s[bb]],'k-')
 
-	plt.savefig("figs/bands.pdf")
+		plt.savefig("figs/bands.pdf")
 
-	jj=400
-	execfile("get-leakage.py")	
-	f5=plt.figure(10); plt.clf();
-	plt.semilogy(xe_s1,leakage_frac,'k+',color='firebrick')
-	if detector == 'LUX':
-		discx = np.arange(1.5,49.5+1,1); discy = 1e-4*np.array([48.4,44.5,11.7,2.5,0,2.84,2.83,5.52,8.28,2.83,8.26,0,8.91,5.78,17.8,14.9,23.9,21.3,12.5,50.7,9.50,3.22,20.1,45.1,34.9,29.1,31.7,36.5,14.6,15.9,22.7,19.8,15.3,20.5,12.7,21.6,31.2,22.4,32.9,9.17,4.97,10.1,39.8,37.1,10.8,33.9,0,5.90,12.4])
-	elif detector == 'XENON10':
-		discx = np.array([5.5,7.7,9.9,12.1,15.4,19.8,24.2]); discy = 1e-4*np.array([7.9,17.4,10.9,41.3,43.1,43.6,72.1])
-	try:
-		plt.plot(discx,discy,'ks',color='gray')
-	except:
-		print "* oops, no data to plot"
-	plt.plot(np.array([0,50]),np.array([1,1])*5e-3,'k--')
-	plt.axis([0,50,1e-6,3e-2])
-	plt.xlabel('$S1$',fontsize=18)
-	plt.ylabel('$leakage~fraction$',fontsize=18)
-	plt.xticks(np.arange(0,51,10),fontsize=18)
-	plt.yticks([1e-6,1e-5,1e-4,1e-3,1e-2],fontsize=18)
-	plt.grid(True)
-	plt.show(0); plt.draw()
-	plt.savefig("figs/discrim0.pdf")
+	if 1:
+		jj=400
+		execfile("get-leakage.py")	
+		f5=plt.figure(10); plt.clf();
+		plt.semilogy(xe_s1,leakage_frac,'r+',markersize=10) #,color='firebrick'
+		if detector == 'LUX':
+			discx = np.arange(1.5,49.5+1,1); discy = 1e-4*np.array([48.4,44.5,11.7,2.5,0,2.84,2.83,5.52,8.28,2.83,8.26,0,8.91,5.78,17.8,14.9,23.9,21.3,12.5,50.7,9.50,3.22,20.1,45.1,34.9,29.1,31.7,36.5,14.6,15.9,22.7,19.8,15.3,20.5,12.7,21.6,31.2,22.4,32.9,9.17,4.97,10.1,39.8,37.1,10.8,33.9,0,5.90,12.4])
+		elif detector == 'XENON10':
+			discx = np.array([5.5,7.7,9.9,12.1,15.4,19.8,24.2]); discy = 1e-4*np.array([7.9,17.4,10.9,41.3,43.1,43.6,72.1])
+		try:
+			plt.plot(discx,discy,'ks',color='gray')
+		except:
+			print "* oops, no data to plot"
 
-if 1: # plot recombination energy dependence
+		if 1: # for proposal
+			execfile("define-detector.py")
+			g1 = 0.116*2; dp[0]=g1
+			eta_extraction = 0.95; dp[11] = eta_extraction
+			execfile("get-leakage.py")
+			plt.semilogy(xe_s1,leakage_frac,'go',markersize=10)
+
+		plt.plot(45,4e-6,'b*',markersize=10,markeredgecolor='b')
+		plt.plot([45,45],[2e-6 , 8e-6],'b-')
+		plt.text(33,4e-6,'typical uncertainty:',verticalalignment='center',color='blue')
+		
+		ytik = [1e-6,1e-5,1e-4,1e-3,1e-2]
+		xx = 51
+		for ii in range(2,len(ytik)):
+			plt.text(xx,ytik[ii]*0.90,100*(1-ytik[ii]),fontsize=16)
+		plt.text(52,1.5e-6,'discrimination (\%):',rotation=90,fontsize=14,verticalalignment='bottom',horizontalalignment='left')
+				
+		plt.plot(np.array([0,50]),np.array([1,1])*5e-3,'k--')
+		plt.axis([0,50,1e-6,3e-2])
+		plt.xlabel('detected scintillation photons',fontsize=18)
+		plt.ylabel('leakage fraction',fontsize=18)
+		plt.xticks(np.arange(0,51,10),fontsize=18)
+		plt.yticks(ytik,fontsize=18)
+		plt.grid(True)
+		plt.show(0); plt.draw()
+		plt.savefig("figs/discrim0.pdf")
+
+if 0: # plot recombination energy dependence
 	f10=plt.figure(11); plt.clf();
+# 	axt = plt.subplot(2,1,1); plt.cla()
 
 	particle='electron'; Ed=180
 	xx=xxfunction(particle,Ed,er)
@@ -321,6 +341,15 @@ if 1: # plot recombination energy dependence
 # 		xx=xxfunction(particle,Ed,er)
 # 		e3900, = plt.plot(er,xx,'k:',color='darkslateblue',label='electron 3900 V/cm')
 
+# 	plt.ylabel(r'$\alpha / a^2 v$',fontsize=18)
+# 	plt.xticks(np.arange(0,51,5),fontsize=18)
+# 	plt.yticks(np.arange(0,0.07,.01),fontsize=18)
+# 	plt.minorticks_on()
+# 	plt.grid(True)
+# 	plt.axis([0,20,0,0.05])
+# 
+# 	axb = plt.subplot(2,1,2); plt.cla()
+
 	particle='neutron'; Ed=180
 	xx=xxfunction(particle,Ed,er)
 	n180, = plt.plot(er,xx,'k-',color='chocolate',label='neutron 180 V/cm')
@@ -334,9 +363,12 @@ if 1: # plot recombination energy dependence
 	plt.xticks(np.arange(0,51,5),fontsize=18)
 	plt.yticks(np.arange(0,0.07,.01),fontsize=18)
 	plt.minorticks_on()
-	plt.grid(True)
-	plt.axis([0,20,0,0.07])
-	plt.legend(handles=[n180,n730,e180,e530,e730])
+	#plt.grid(True)
+	plt.axis([0.5,50,0.01,0.05])
+	plt.xscale('log');
+	#plt.yscale('log');
+
+	plt.legend(handles=[n180,n730,e180,e530,e730],loc='lower left')
 	plt.show(0); plt.draw()
 	plt.savefig("figs/yields.pdf")
 
