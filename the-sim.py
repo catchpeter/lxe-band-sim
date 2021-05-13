@@ -1,6 +1,9 @@
 #!/Applications/anaconda/bin/python
 
 # 2016-03-03 refining model, energy dependence in Thomas-Imel param alpha
+# 2021-05-11 simplifying code to just provide LUX / LUX-like sim, and
+#            adding crystalline case
+#             
 
 import sys
 import matplotlib.pyplot as plt
@@ -11,52 +14,54 @@ from scipy.interpolate import interp1d
 from matplotlib import colors
 from matplotlib import rc # import matplotlib.colors as colors
 
-rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
-## for Palatino and other serif fonts use:
-#rc('font',**{'family':'serif','serif':['Palatino']})
-
-#plt.ioff()
+rc('font',**{'family':'serif','serif':['Palatino']})
+# rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 
 ############################################# my imports
-import myfunctions as mf
-mf.np = np
+#import myfunctions as mf
+#mf.np = np
+def gaussian(x,xx):
+    y = x[0]*np.exp(-np.power((xx - x[1])/x[2], 2.)/2) /(np.sqrt(2.*np.pi)*x[2])
+    return y
+def gaussian_min(x,xx,counts):
+	return np.sum((gaussian(x,xx)-counts)**2)
 
 ############################################# define stuff
 
 def xxfunction(particle,Ed,er):
 	if particle=='electron':
-		if Ed==180:
+		if Ed==180: # tailored to LUX
 			xx = 0.032+ 0.004/(1+np.exp((er-5)/0.5))
-		elif Ed==530:
+		elif Ed==530: # tailored to XENON100
 			xx = 0.036*(np.exp(-(er-3.5)/12))
 			xx[er<3.5] = xx[er==3.5]			
 			xx[er>=17] = xx[er==17]			
-		elif Ed==730:
+		elif Ed==730: # tailored to XENON10
 			xx = 0.034*np.exp(-(er-2)/13)
 			xx[er<2]= xx[er==2]
-  			xx[er>=17] = xx[er==17]			
-		elif Ed==3900:
+			xx[er>=17] = xx[er==17]			
+		elif Ed==3900: # tailored to ZEPLINIII
 			xx = 0.025*(np.exp(-(er-0)/14))
 			xx[er>=17] = xx[er==17]
 		else:
 			xx = x[2]*np.ones(len(er))			
 	elif particle=='neutron':
 		x2 = 0.044
-		if Ed==180:
+		if Ed==180: # tailored to LUX
 			xx = x2+ 0.002*(1/(1+np.exp((er-15)/2))-1)
-		elif Ed==530:
+		elif Ed==530: # tailored to XENON100
 			xx = x2+ 0.005*(1/(1+np.exp((er-15)/2))-1)
-		elif Ed==730:
+		elif Ed==730: # tailored to XENON10
 			xx = x2+ 0.005*(1/(1+np.exp((er-15)/2))-1)
-		elif Ed==3900:
+		elif Ed==3900: # tailored to ZEPLINIII
 			xx = x2+ 0.005*(1/(1+np.exp((er-15)/2))-1)
 			#xx = (x2-0.015) # ad-hoc to address suspected low-E multiple scatter contamination
 		else:
 			xx = x2*np.ones(len(er))			
 	return xx
 
-def signalYields(particle,Ed,er):
+def signalYields(particle,Ed,er,detector):
 	wq = 0.0138 # average energy required to create a single quanta, keV
 	if particle == 'electron':
 		x0 = np.array([1,0.06])
@@ -65,6 +70,8 @@ def signalYields(particle,Ed,er):
 		alphaOveraSquaredv = xxfunction(particle,Ed,er)
 		Nt = er * fn / wq # total quanta created
 		Ni = Nt/(1+NexOverNi) # ions created
+		if (detector=='crystal'): # more e- escape recombination due to e- mobility x2 increase
+			Ni = Ni*1.15
 		xi = Ni/4 * alphaOveraSquaredv # Thomas-Imel parameter
 		#r = 1 - np.log(1+xi)/xi # everybody else uses this so define it :)
 		f0 = np.log(1+xi)/xi # Thomas-Imel fraction of ions that escape recombination
@@ -82,7 +89,7 @@ def signalYields(particle,Ed,er):
 		Ni = Nt/(1+NexOverNi)
 		xi = Ni/4 * alphaOveraSquaredv 
 		f0 = np.log(1+xi)/xi
-	return (Nt,Ni,f0)
+	return (Nt,Ni,f0,x0[1])
 
 def pmtresponse(sigma,samples,softwareThreshold_phe,double_phe_fraction):
 	# note that since mu == 1, sigma and resolution (sigma/mu) are interchangeable here
@@ -95,29 +102,11 @@ def pmtresponse(sigma,samples,softwareThreshold_phe,double_phe_fraction):
 	a = a*mask 
 	return a
 
-# dp[0] = g1
-# dp[1] = g2 # not used, = g2prime*gasgain
-# dp[2] = g2prime
-# dp[3] = gasgain
-# dp[4] = resolution_e
-# dp[5] = S2Threshold_phe
-# dp[6] = nco
-# dp[7] = double_phe_fraction
-# dp[8] = S1window_ns
-# dp[9] = resolution_pmt
-
-
-def bandsim(particle,Ed,er,dp,pmtps1,pmtps2,jj):
+def bandsim(particle,Ed,er,dp,pmtps1,pmtps2,jj,detector='None'):
 	ii = len(er)
-	if Ed==180: # LUX electric field
-		x0 = 0.06
-	elif Ed==530: # XENON100 electric field
-		x0 = 0.07
-	elif Ed==730: # XENON10 electric field
-		x0 = 0.07		
 	Ne = np.zeros((ii,jj)); S1 = np.zeros((ii,jj)); S2 = np.zeros((ii,jj)); Ng = np.zeros((ii,jj)); Nee = np.zeros((ii,jj));
 	Nt = np.zeros(ii); Ni = np.zeros(ii); f0 = np.zeros(ii);
-	(Nt,Ni,f0) = signalYields(particle,Ed,er)
+	(Nt,Ni,f0,x0) = signalYields(particle,Ed,er,detector)
 	for i in range(1,ii): # energies
 		for j in range(0,jj): # events
 			if particle=="electron":
@@ -131,13 +120,11 @@ def bandsim(particle,Ed,er,dp,pmtps1,pmtps2,jj):
 					ne0 = np.random.binomial((Ni[i]),p) 
 				else:
 					ne0 = 0
-
 			elif particle=="neutron":
 				tauS1_ns = 4 # ns
 				ne0 = np.random.binomial(Ni[i],f0[i])
 				ne1 = 0
 			Ne[i][j] = ne0 #+ ne1
-				
 			
 			if 0: # DO NOT USE. This is not quite correct, has been used in the past, and is copied here for reference only	
 				S2[i][j] = eta_extraction * dp[1] * (np.sqrt(Ne[i][j]) * np.random.normal(0,dp[4],1)+Ne[i][j] )
@@ -145,7 +132,7 @@ def bandsim(particle,Ed,er,dp,pmtps1,pmtps2,jj):
 				Nee[i][j] = np.random.binomial(Ne[i][j],dp[11]) # Number of electrons extracted
 				hitpattern2 = np.random.binomial(dp[3]*Nee[i][j], pmtps2*dp[2])
 				S2[i][j] = np.sum( pmtresponse(dp[10],np.sum(hitpattern2),dp[9],dp[7]) )
-				
+							
 			Ng[i][j] = (Nt[i] - Ne[i][j])
 			if Ng[i][j]<=0:
 				S1[i][j]=0
@@ -165,7 +152,10 @@ def bandsim(particle,Ed,er,dp,pmtps1,pmtps2,jj):
 				else:
 					S1[i][j] = 0
 	S1[S1==0]=1e-6; S2[S2==0]=1e-6; #S1[S1==0] = np.finfo(float).eps
-	S2[S2<dp[5]] = 0	
+	S2[S2<dp[5]] = 0
+	if 1:#(detector=='LUX'):
+		S2 = S2/2 # to compare with LUX data assume only using bottom array so half the S2
+	
 	yy=np.log10(S2/S1); yy[np.isnan(yy)]=0; yy[np.isinf(yy)]=0; yy[yy>5]=0;
 	return (Ne,Ng,S1,S2,yy)
 
@@ -176,6 +166,7 @@ def getBandMuSigma(xe_s1,xe_be,S1,yy,detector):
 	sim_bc = np.zeros((len(xe_s1),1))
 	showplot=0
 	if particle=="electron" and showplot:
+		plt.rcParams["figure.figsize"] = (12,8)
 		fig=plt.figure(16);plt.clf()
 	for i in range(0,len(xe_be)-1):
 		mask0 = np.logical_and(S1>xe_be[i],S1<xe_be[i+1])
@@ -190,269 +181,209 @@ def getBandMuSigma(xe_s1,xe_be,S1,yy,detector):
 				counts,bine=np.histogram(yy[mask],np.arange(1.,3.5,0.03));binc = (bine[0:-1] + bine[1:])/2
 				b0 = np.array([np.sum(counts)/10,np.mean(yy[mask]),1*np.std(yy[mask])]) #b0 = np.array([15,2.37,0.142])
 				#b0 = [100,2,0.1]
-				res = ( minimize(mf.gaussian_min,b0,args=(binc,counts),method='nelder-mead',
+				res = ( minimize(gaussian_min,b0,args=(binc,counts),method='nelder-mead',
 								options={'xtol': 1e-8, 'disp': False}) )
 				sim_mu[i] = res.x[1]
 				sim_1s[i] = res.x[2]
 			if particle=="electron" and showplot:# and detector!="XENON100":
 				fig=plt.figure(16)
 				ax = plt.subplot(3,5,i+1); plt.cla()
-				plt.hist(yy[mask],bine,edgecolor="0.2",facecolor='None',alpha=0.1)
+				plt.hist(yy[mask],bine,edgecolor="None",facecolor='darkslateblue',alpha=0.5)
 				x=np.arange(0.8,3.5,0.01)
-				#plt.plot(x,mf.gaussian(b0,x),'g-')
-				plt.plot(x,mf.gaussian(res.x,x),'k-.')
-				plt.plot(x,mf.gaussian([res.x[0],xermu[i],xer1s[i]],x),'b-')
+				#plt.plot(x,gaussian(b0,x),'g-')
+				if (detector=='LUX'):
+					plt.plot(x,gaussian([res.x[0],xermu[i],xer1s[i]],x),'k-',color='black',linewidth=1)
+				plt.plot(x,gaussian(res.x,x),'--',color='darkslateblue',linewidth=0.75)
+
 				plt.yscale('log');ax.set_ylim(1,300)
-				plt.text(0.6,50,"$S1: [%.1f , %.1f]$" % (xe_be[i],xe_be[i+1]) ,fontsize=8)
-				plt.text(0.6,100,"$\mu = %.2f$ \n $\sigma = %.3f$" % (res.x[1],res.x[2]) ,fontsize=10)
-				plt.show(0); plt.draw()
+				plt.text(1.0,80,"$S1: [%.1f , %.1f]$" % (xe_be[i],xe_be[i+1]) ,fontsize=8)
+				plt.text(1.0,150,"$\sigma/\mu = %.3f/%.2f$" % (res.x[2],res.x[1]) ,fontsize=10)
+				plt.show(); plt.draw()
+				plt.savefig("figs/fits0.png")
+
 	return (sim_mu,sim_1s,sim_bc)
 
 def getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu):
 	leakage_frac = np.zeros(len(xe_s1))
+	uncert_frac = np.zeros(len(xe_s1))
 	y = np.arange(0.5,4.5,1e-4)
 	for i in range(0,len(xe_s1)):
-		g = mf.gaussian([1,sim_er_mu[i],sim_er_1s[i]],y)
+		g = gaussian([1,sim_er_mu[i],sim_er_1s[i]],y)
 		cut = y<sim_nr_mu[i]
 		integral = np.sum(g)
 		leakage = np.sum(g[cut])
 		leakage_frac[i] = leakage/integral
-	return leakage_frac
-		
+		uncert_frac[i] = np.sqrt(leakage)/integral
+	return (leakage_frac, uncert_frac)
+
+
 ############################################# do stuff
 
 
 if 1: # plot bands
 	if 1:
-		detector = 'LUX'
+		if 1:
+			detector = 'LUX'
+			g1 = 0.115
+			eta_extraction = 0.50
+		if 0:
+			detector = 'LUX-like'
+			g1 = 0.115
+			eta_extraction = 0.95
+		if 1:
+			detector = 'crystal'
+			g1 = 0.115
+			eta_extraction = 0.50
+		
 		Ed = 180
-		#Ed = 1
-		er = np.arange(0.75,12,0.25) # keV
-	elif 0:
-		detector = 'XENON100'
-		Ed = 530
-		er = np.arange(0.75,25,0.25) # keV
-	elif 0:
-		detector = 'XENON10'
-		Ed = 730
-		er = np.arange(0.75,20,0.25) # keV
-	elif 0:
-		detector = 'ZEPLIN3'
-		Ed = 3900
-		er = np.arange(0.75,30,0.25) # keV
+		double_phe_fraction = 0.2
+		npmttop = 61
+		npmtbot = 61
+		resolution_pmt = 0.37
+		g2prime = 0.15 # actual geometric * QE light collection
+		gasgain = 160
+		g2 = g2prime*gasgain
+		resolution_e = np.sqrt(g2)/g2
+		nco = 3
+		softwareThreshold_phe = 1/3.
+		S1window_ns = 100 # ns
+		S2Threshold_phe = g2*8.1 # based on 200/24.6
 
-	execfile("define-detector.py")
+		pmtptop = np.ones(npmttop); pmtptop.fill(0.20/npmttop)
+		pmtpbot = np.ones(npmtbot); pmtpbot.fill(0.80/npmtbot)
+		pmtps1 = np.concatenate((pmtptop,pmtpbot),axis=0)
+
+		# simple 50:50 assumption for S2
+		pmtps2 = np.ones(npmttop+npmtbot); pmtps2.fill(1.0/(npmttop+npmtbot))
+
+		# assign params to array for convenience
+		dp = np.zeros(12)
+		dp[0] = g1
+		dp[1] = g2 # not used, = g2prime*gasgain
+		dp[2] = g2prime
+		dp[3] = gasgain
+		dp[4] = resolution_e # not used, is defined via g2prime and gasgain
+		dp[5] = S2Threshold_phe 
+		dp[6] = nco
+		dp[7] = double_phe_fraction
+		dp[8] = S1window_ns
+		dp[9] = softwareThreshold_phe
+		dp[10] = resolution_pmt
+		dp[11] = eta_extraction
+
+		# LUX-specific params digitized from papers
+		xe_be = np.append([np.arange(2,4.1,1)],[np.arange(5,55,5)]) # 80
+		xe_s1 = (xe_be[1:]+xe_be[0:-1])/2 #np.append([np.arange(2.5,5,1)],[np.arange(7.5,50,5)]) # 75
+		xermu = np.array([2.284,2.175,2.097,1.951,1.814,1.731,1.670,1.621,1.585,1.552,1.524,1.500])
+		xer128s = np.array([2.109,2.009,1.936,1.796,1.667,1.586,1.529,1.482,1.448,1.417,1.393,1.371])
+		xer1s = (xermu-xer128s)/1.28
+		xer3s = xermu-xer1s*3
+		xnrmu = np.array([1.830,1.720,1.650,1.549,1.481,1.429,1.383,1.349,1.311,1.287,1.262,1.236])
+		xnr128s = np.array([1.637,1.525,1.442,1.357,1.330,1.292,1.266,1.237,1.206,1.188,1.163,1.138])
+		xnr1s = (xnrmu-xnr128s)/1.28
+
 
 ## plot S2/S1 vs S1
-	if 0:
-		jj = 400 # number of simulated events per energy
+	plt.rcParams["figure.figsize"] = (12,5)
+	fig=plt.figure(9); plt.clf();#  axes=fig.add_axes([0.15, 0.15, 0.8, 0.8])
+	if 1:
+		jj = 500 # number of simulated events per energy
 		particle='electron'
-		#x0 = define_x0(particle,Ed)
-		(Ne,Ng,S1,S2,yy) = bandsim(particle,Ed,er,dp,pmtps1,pmtps2,jj)
+		er = np.arange(0.75,12,0.25) # keV
+		(Ne,Ng,S1,S2,yy) = bandsim(particle,Ed,er,dp,pmtps1,pmtps2,jj,detector)
 		(sim_er_mu,sim_er_1s,sim_bc) = getBandMuSigma(xe_s1,xe_be,S1,yy,detector)
-		plt.figure(9); ax = plt.subplot(1,2,1); plt.cla()
+		plt.figure(9); plt.subplot(1,2,1); plt.cla()
 		plt.plot(S1,yy,'k.',color='darkslateblue',markeredgecolor="None",alpha=0.13) 
-		execfile("add-to-plot.py")
-		plt.plot(xe_s1,sim_er_mu,'k+',ms=6,markerfacecolor="None",markeredgewidth=0.75)
-		plt.plot(xe_s1,sim_er_mu-sim_er_1s,'k+',ms=6,markerfacecolor="None",markeredgewidth=0.75)
-# 		for bb in range(0,len(xe_s1)):
-# 			plt.plot([xe_be[bb], xe_be[bb+1]],[sim_er_mu[bb], sim_er_mu[bb]],'k-')
-# 			#plt.plot([xe_s1[bb], xe_s1[bb]],[sim_er_1s[bb], sim_er_1s[bb]]/np.sqrt(sim_bc[bb]),'k-')
-# 			plt.plot([xe_be[bb], xe_be[bb+1]],[sim_er_mu[bb]-sim_er_1s[bb], sim_er_mu[bb]-sim_er_1s[bb]],'k-')
+		plt.plot(xe_s1,sim_er_mu,'ko',ms=4,markeredgewidth=0.75,markerFaceColor='None')
+		plt.plot(xe_s1,sim_er_mu-sim_er_1s,'k+',ms=6,markeredgewidth=0.75)
+		plt.plot(xe_s1,sim_er_mu+sim_er_1s,'k+',ms=6,markeredgewidth=0.75)
 
-	if 0:
+		if detector=='LUX':		# digitized LUX data to compare
+			plt.plot(xe_s1,xermu,'k.-',ms=5,markerfacecolor="None",alpha=1.,lineWidth=0.5)
+			plt.plot(xe_s1,xermu-xer1s,'k.--',ms=5,markerfacecolor="None",alpha=1.,lineWidth=0.5)
+			plt.plot(xe_s1,xermu+xer1s,'k.--',ms=5,markerfacecolor="None",alpha=1.,lineWidth=0.5)
+
+		plt.xlabel('S1',fontsize=16)
+		plt.ylabel('$log_{10}$(S2/S1)',fontsize=16)
+		#plt.grid(True)
+		plt.xticks(np.arange(0,51,10),fontsize=16)
+		plt.yticks(np.arange(0.5,3.5,0.5),fontsize=16)
+		plt.axis([0,50,0.4,3.3])
+		plt.minorticks_on()
+		plt.show(); plt.draw()
+
+	if 1:
 		jj = 100 # number of simulated events per energy
 		particle='neutron'
 		er = np.arange(0.75,35,0.25) # keV
-		#x0 = define_x0(particle,Ed)
-		(Ne,Ng,S1,S2,yy) = bandsim(particle,Ed,er,dp,pmtps1,pmtps2,jj)
+		(Ne,Ng,S1,S2,yy) = bandsim(particle,Ed,er,dp,pmtps1,pmtps2,jj,detector)
 		(sim_nr_mu,sim_nr_1s,sim_bc) = getBandMuSigma(xe_s1,xe_be,S1,yy,detector)
-		plt.figure(9);ax = plt.subplot(1,2,2); plt.cla()
+		plt.figure(9); plt.subplot(1,2,2); plt.cla()
 		plt.plot(S1,yy,'k.',color='chocolate',markeredgecolor="None",alpha=0.13) 
-		execfile("add-to-plot.py")
-		plt.plot(xe_s1,sim_nr_mu,'k+',ms=6,markerfacecolor="None",markeredgewidth=0.75)
-		plt.plot(xe_s1,sim_nr_mu-sim_nr_1s,'k+',ms=6,markerfacecolor="None",markeredgewidth=0.75)
-# 		for bb in range(0,len(xe_s1)):
-# 			plt.plot([xe_be[bb], xe_be[bb+1]],[sim_nr_mu[bb], sim_nr_mu[bb]],'k-')
-# 			#plt.plot([xe_s1[bb], xe_s1[bb]],[sim_nr_1s[bb], sim_nr_1s[bb]]/np.sqrt(sim_bc[bb]),'k-')
-# 			plt.plot([xe_be[bb], xe_be[bb+1]],[sim_nr_mu[bb]-sim_nr_1s[bb], sim_nr_mu[bb]-sim_nr_1s[bb]],'k-')
+		plt.plot(xe_s1,sim_nr_mu,'ko',ms=4,markeredgewidth=0.75,markerFaceColor='None')
+		plt.plot(xe_s1,sim_nr_mu-sim_nr_1s,'k+',ms=6,markeredgewidth=0.75)
+		plt.plot(xe_s1,sim_nr_mu+sim_nr_1s,'k+',ms=6,markeredgewidth=0.75)
 
-		plt.savefig("figs/bands.pdf")
+		if detector=='LUX':		# digitized LUX data to compare
+			plt.plot(xe_s1,xnrmu,'k.-',ms=4,markerfacecolor="None",alpha=1.,lineWidth=0.5)
+			plt.plot(xe_s1,xnrmu-xnr1s,'k.--',ms=6,markerfacecolor="None",alpha=1.,lineWidth=0.5)
+			plt.plot(xe_s1,xnrmu+xnr1s,'k.--',ms=6,markerfacecolor="None",alpha=1.,lineWidth=0.5)
+
+		if 0:
+			energies = [1,2,5,10,15,20]
+			s1s = np.arange(0.01,50,0.01)
+			for i in range(len(energies)):
+				s2s = (energies[i]/0.0138 - s1s/g1)*g2
+				yy = np.log10((s2s)/s1s)
+				plt.plot(s1s,yy,'k:')
+	
+		plt.xlabel('S1',fontsize=16)
+		plt.ylabel('$log_{10}$(S2/S1)',fontsize=16)
+		#plt.grid(True)
+		plt.xticks(np.arange(0,51,10),fontsize=16)
+		plt.yticks(np.arange(0.5,3.5,0.5),fontsize=16)
+		plt.axis([0,50,0.4,3.3])
+		plt.minorticks_on()
+		plt.show(); plt.draw()
+
+
+		plt.savefig("figs/bands.png")
 
 	if 1:
-		jj=400
-		execfile("get-leakage.py")	
-		f5=plt.figure(10); plt.clf();
-		plt.semilogy(xe_s1,leakage_frac,'r+',markersize=10) #,color='firebrick'
-		if detector == 'LUX':
+		plt.rcParams["figure.figsize"] = (7,5)
+		fig=plt.figure(10); plt.clf();  axes=fig.add_axes([0.15, 0.15, 0.75, 0.8])
+		(leakage_frac,uncert_frac) = getLeakage(xe_s1,sim_er_mu,sim_er_1s,sim_nr_mu)
+		plt.errorbar(xe_s1,leakage_frac,yerr=uncert_frac,xerr=(xe_s1-xe_be[0:-1]), fmt='o',color='darkslateblue',markeredgecolor='darkslateblue',markerfacecolor="white",label='simulation')
+		plt.yscale('log')
+		if 1: # plot LUX data for comparison
 			discx = np.arange(1.5,49.5+1,1); discy = 1e-4*np.array([48.4,44.5,11.7,2.5,0,2.84,2.83,5.52,8.28,2.83,8.26,0,8.91,5.78,17.8,14.9,23.9,21.3,12.5,50.7,9.50,3.22,20.1,45.1,34.9,29.1,31.7,36.5,14.6,15.9,22.7,19.8,15.3,20.5,12.7,21.6,31.2,22.4,32.9,9.17,4.97,10.1,39.8,37.1,10.8,33.9,0,5.90,12.4])
-		elif detector == 'XENON10':
-			discx = np.array([5.5,7.7,9.9,12.1,15.4,19.8,24.2]); discy = 1e-4*np.array([7.9,17.4,10.9,41.3,43.1,43.6,72.1])
-		try:
-			plt.plot(discx,discy,'ks',color='gray')
-		except:
-			print "* oops, no data to plot"
-
-		if 1: # for proposal
-			execfile("define-detector.py")
-			g1 = 0.116*2; dp[0]=g1
-			eta_extraction = 0.95; dp[11] = eta_extraction
-			execfile("get-leakage.py")
-			plt.semilogy(xe_s1,leakage_frac,'go',markersize=10)
-
-		plt.plot(45,4e-6,'b*',markersize=10,markeredgecolor='b')
-		plt.plot([45,45],[2e-6 , 8e-6],'b-')
-		plt.text(33,4e-6,'typical uncertainty:',verticalalignment='center',color='blue')
+			plt.plot(discx,discy,'ks',color='gray',markerfacecolor="None",label='LUX data')
 		
 		ytik = [1e-6,1e-5,1e-4,1e-3,1e-2]
 		xx = 51
 		for ii in range(2,len(ytik)):
 			plt.text(xx,ytik[ii]*0.90,100*(1-ytik[ii]),fontsize=16)
-		plt.text(52,1.5e-6,'discrimination (\%):',rotation=90,fontsize=14,verticalalignment='bottom',horizontalalignment='left')
+		plt.text(52,1.0e-6,'discrimination (\%)',rotation=90,fontsize=14,verticalalignment='bottom',horizontalalignment='left')
 				
 		plt.plot(np.array([0,50]),np.array([1,1])*5e-3,'k--')
 		plt.axis([0,50,1e-6,3e-2])
-		plt.xlabel('detected scintillation photons',fontsize=18)
-		plt.ylabel('leakage fraction',fontsize=18)
-		plt.xticks(np.arange(0,51,10),fontsize=18)
-		plt.yticks(ytik,fontsize=18)
+		plt.xlabel('detected scintillation photons',fontsize=16)
+		plt.ylabel('leakage fraction',fontsize=16)
+		plt.xticks(np.arange(0,51,10),fontsize=16)
+		plt.yticks(ytik,fontsize=16)
 		plt.grid(True)
-		plt.show(0); plt.draw()
-		plt.savefig("figs/discrim0.pdf")
-
-if 0: # plot recombination energy dependence
-	f10=plt.figure(11); plt.clf();
-# 	axt = plt.subplot(2,1,1); plt.cla()
-
-	particle='electron'; Ed=180
-	xx=xxfunction(particle,Ed,er)
-	e180, = plt.plot(er[er<10],xx[er<10],'k-',color='darkslateblue',label='electron 180 V/cm')
-
-	particle='electron'; Ed=730
-	xx=xxfunction(particle,Ed,er)
-	e730, = plt.plot(er[er<15],xx[er<15],'k--',color='darkslateblue',label='electron 730 V/cm')
-
-	particle='electron'; Ed=530
-	xx=xxfunction(particle,Ed,er)
-	e530, = plt.plot(er[er<17],xx[er<17],'k-.',color='darkslateblue',label='electron 530 V/cm')
-
-# 		particle='electron'; Ed=3900
-# 		x0 = define_x0(particle,Ed)
-# 		xx=xxfunction(particle,Ed,er)
-# 		e3900, = plt.plot(er,xx,'k:',color='darkslateblue',label='electron 3900 V/cm')
-
-# 	plt.ylabel(r'$\alpha / a^2 v$',fontsize=18)
-# 	plt.xticks(np.arange(0,51,5),fontsize=18)
-# 	plt.yticks(np.arange(0,0.07,.01),fontsize=18)
-# 	plt.minorticks_on()
-# 	plt.grid(True)
-# 	plt.axis([0,20,0,0.05])
-# 
-# 	axb = plt.subplot(2,1,2); plt.cla()
-
-	particle='neutron'; Ed=180
-	xx=xxfunction(particle,Ed,er)
-	n180, = plt.plot(er,xx,'k-',color='chocolate',label='neutron 180 V/cm')
-
-	particle='neutron'; Ed=730
-	xx=xxfunction(particle,Ed,er)
-	n730, = plt.plot(er,xx,'k--',color='chocolate',label='neutron 730 V/cm')
-
-	plt.xlabel('Energy~/~keV',fontsize=18)
-	plt.ylabel(r'$\alpha / a^2 v$',fontsize=18)
-	plt.xticks(np.arange(0,51,5),fontsize=18)
-	plt.yticks(np.arange(0,0.07,.01),fontsize=18)
-	plt.minorticks_on()
-	#plt.grid(True)
-	plt.axis([0.5,50,0.01,0.05])
-	plt.xscale('log');
-	#plt.yscale('log');
-
-	plt.legend(handles=[n180,n730,e180,e530,e730],loc='lower left')
-	plt.show(0); plt.draw()
-	plt.savefig("figs/yields.pdf")
-
-if 0: # plot discrimination versus x
-	f4=plt.figure(4); plt.clf(); #ax7=f7.add_axes([0.1, 0.1, 0.8, 0.8]); plt.clf();# plt.hold(True)
-	detector = 'LUX'
-
-	Ed = 180
-	execfile("define-detector.py")
-	g1 = 0.08; dp[0]=g1 #0.116*1.5
-	execfile("get-leakage.py")
-	plt.semilogy(xe_s1,leakage_frac,'rx')
-
-	Ed = 180	
-	execfile("define-detector.py")
-	execfile("get-leakage.py")
-	lux180g11, = plt.semilogy(xe_s1,leakage_frac,'ko')
-
-	Ed = 180
-	execfile("define-detector.py")
-	eta_extraction = 0.95; dp[11] = eta_extraction
-	execfile("get-leakage.py")
-	lux180g11eta95, = plt.semilogy(xe_s1,leakage_frac,'k+')
-
-	Ed = 730
-	execfile("define-detector.py")
-	execfile("get-leakage.py")
-	lux730g11, = plt.semilogy(xe_s1,leakage_frac,'b^')
-
-
-	plt.plot(np.array([0,50]),np.array([1,1])*5e-3,'k--')
-	plt.axis([0,50,1e-6,3e-2])
-	plt.xlabel('$S1$',fontsize=18)
-	plt.ylabel('$leakage~fraction$',fontsize=18)
-	plt.xticks(np.arange(0,51,10),fontsize=18)
-	plt.yticks([1e-6,1e-5,1e-4,1e-3,1e-2],fontsize=18)
-	plt.grid(True)
-	plt.show(0); plt.draw()
-	plt.savefig("figs/disc7.pdf")
-
-
-if 0:
-	f5=plt.figure(5); plt.clf();
-	detector = 'LUX'
-	jj = 400
-	Ed = 180	
-	execfile("define-detector.py")
-	eta_extraction = 0.95; dp[11] = eta_extraction
-	g1 = 0.057; dp[0]=g1
-	execfile("get-leakage.py")
-	plt.semilogy(xe_s1,leakage_frac,'kx',color='orange')
+		plt.legend(loc='lower right')
+		plt.show(); plt.draw()
+		plt.savefig("figs/discrim0.png")
 	
-	Ed = 180	
-	execfile("define-detector.py")
-	execfile("get-leakage.py")
-	plt.semilogy(xe_s1,leakage_frac,'ko')
+		# to compare
+		try:
+			tmp = np.load('tmp.npy')
+		except:
+			print('no file to load')
+			
+		comp_leakage = tmp/leakage_frac
+		print(comp_leakage)
 
-	Ed = 180	
-	execfile("define-detector.py")
-	eta_extraction = 0.95; dp[11] = eta_extraction
-	execfile("get-leakage.py")
-	plt.semilogy(xe_s1,leakage_frac,'k+')
-
-	Ed = 730
-	execfile("define-detector.py")
-	eta_extraction = 0.95; dp[11] = eta_extraction
-	execfile("get-leakage.py")
-	plt.semilogy(xe_s1,leakage_frac,'k^',color='aqua')
-
-	Ed = 180
-	execfile("define-detector.py")
-	eta_extraction = 0.95; dp[11] = eta_extraction
-	g1 = 0.117*2; dp[0]=g1
-	execfile("get-leakage.py")
-	plt.semilogy(xe_s1,leakage_frac,'k*',color='indigo')
-
-
-	plt.plot(np.array([0,50]),np.array([1,1])*5e-3,'k--')
-	plt.axis([0,50,1e-6,3e-2])
-	plt.xlabel('$S1$',fontsize=18)
-	plt.ylabel('$leakage~fraction$',fontsize=18)
-	plt.xticks(np.arange(0,51,10),fontsize=18)
-	plt.yticks([1e-6,1e-5,1e-4,1e-3,1e-2],fontsize=18)
-	plt.grid(True)
-	plt.show(0); plt.draw()
-	plt.savefig("figs/disc5.pdf")
+		tmp = leakage_frac; np.save('tmp',tmp)
 

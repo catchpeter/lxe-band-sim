@@ -140,6 +140,19 @@ elif detector == 'LZ':
 	S1window_ns = 100 # ns
 	eta_extraction = 0.95
 
+elif detector == 'LUX-like':
+	g1 = 0.1
+	double_phe_fraction = 0.2
+	npmttop = 61
+	npmtbot = 61
+	resolution_pmt = 0.37
+	g2 = 25
+	resolution_e = np.sqrt(g2)/g2
+	nco = 3
+	softwareThreshold_phe = 1/3.
+	S1window_ns = 100 # ns
+	eta_extraction = 0.95
+
 
 # probability for photon to impinge on each PMT (average assumption)
 try:
